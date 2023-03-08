@@ -1,588 +1,220 @@
-#5E1. 
-#2, 3, 4 are linear models of multiple linear regression because they contain 2 variables.
-
-#5E2. Write down a multiple regression to evaluate the claim: 
-Animal diversity is linearly related to
-latitude, but only after controlling for plant diversity. 
-You just need to write down the model definition.
-
-#page 125, 139/483
-
-#animal_diversity ~ Normal(mu, sigma)
-#mu <- alpha + beta_latitude*latitude + beta_plant_diversity* plant_diversity
-#beta_latitude = Normal(0,1)
-#beta_plant_diversity = Normal(0,1)
-alpha ~ Normal(10,10)
-sigma ~ uniform(0,10)
-
-
-#5E3. Write down a multiple regression to evaluate the claim: 
-#Neither amount of funding nor size
-#of laboratory is by itself a good predictor of time to PhD degree; 
-#but together these variables are both
-#positively associated with time to degree. 
-#Write down the model definition and indicate which side of
-#zero each slope parameter should be on
-
-time_to_receive_phd ~ Normal(mu, sigma)
-mu <- alpha + beta_amount_of_funding*amount_of_funding + beta_size_of_lab*size_of_lab
-beta_amount_of_funding ~ Normal(0,1)
-beta_size_of_lab ~ Normal(0,1)
-alpha ~ Normal(10, 10)
-sigma ~ uniform(0, 10)
-
-beta_size_of_lab & beta_amount_of_funding is positively associated with time of degree. (+)
-
-#5E4. 3,4, and 5 are equivalent multiple regression models.
-
-#5M1. Invent your own example of a spurious correlation. An outcome variable should be correlated
-#with both predictor variables. But when both predictors are entered in the same model, the correlation
-#between the outcome and one of the predictors should mostly vanish (or at least be greatly reduced).
-
 library(rethinking)
-N <- 100 # number of cases
-x_real <- rnorm( N ) # x_real as Gaussian with mean 0 and stddev 1
-x_spur <- rnorm( N , x_real ) # x_spur as Gaussian with mean=x_real
-y <- rnorm( N , x_real ) # y as Gaussian with mean=x_real
-d <- data.frame(y,x_real,x_spur) # bind all together in data frame
 
-#fit a model without xreal, xspur is correlated xreal
-mspur  <- map(
-			alist(
-				y ~ dnorm(mu, sigma),
-				mu <- a + bspur*x_spur,
-				a ~ dnorm(10, 10),
-				bspur ~ dnorm(10,10),
-				sigma ~ dunif(0,10)
-				), data =d )
-#review bspur
-precis(mspur)
+data(WaffleDivorce)
+d <- WaffleDivorce
 
-#fit a model with xreal and xspur
-mspur  <- map(
-			alist(
-				y ~ dnorm(mu, sigma),
-				mu <- a + breal*x_real + bspur*x_spur,
-				a ~ dnorm(10, 10),
-				breal ~ dnorm(0,10),
-				bspur ~ dnorm(10,10),
-				sigma ~ dunif(0,10)
-				), data =d )
-
-#the mean of bspur has been reduced by 1/3
-precis(mspur)
-
-#5M2.
-#Invent your own example of a masked relationship. An outcome variable should be correlated
-#with both predictor variables, but in opposite directions. And the two predictor variables should be
-#correlated with one another.
-
-N <- 100 # number of cases
-rho <- 0.7 # correlation btw x_pos and x_neg
-x_pos <- rnorm( N ) # x_pos as Gaussian
-x_neg <- rnorm( N , rho*x_pos , # x_neg correlated with x_pos
-sqrt(1-rho^2) )
-y <- rnorm( N , x_pos - x_neg ) # y equally associated with x_pos, x_neg
-d <- data.frame(y,x_pos,x_neg) # bind all together in data frame
-
-#x_pos and x_neg are positively correlated
-#x_pos is positively correlated with y
-#x_neg is negatively correlated with y.
-pairs(d)
-
-#fit a model with x_pos only, model is missing x_neg
-mpos  <- map(
-			alist(
-				y ~ dnorm(mu, sigma),
-				mu <- a + bpos*x_pos,
-				a ~ dnorm(10, 10),
-				bpos ~ dnorm(0,10),
-				sigma ~ dunif(0,10)
-				), data =d )
-
-#the mean of bspur has been reduced by 1/3
-precis(mpos)
-
-
-#fit a model with xpos and xneg
-m_pos_neg  <- map(
-			alist(
-				y ~ dnorm(mu, sigma),
-				mu <- a + bpos*x_pos + bneg*x_neg,
-				a ~ dnorm(10, 10),
-				bpos ~ dnorm(0,10),
-				bneg ~ dnorm(0,10),
-				sigma ~ dunif(0,10)
-				), data =d )
-
-#with the addition of x_neg, bpos increased x4 and sigma is decreased 
-#(x_pos and x_neg are both associated to the outcome)
-precis(m_pos_neg)
 
 #5M3
 
-More divorces does not cause a higher marriage rate, however is an indicator of more marriages.
-However, divorces does not cause a higher marriage rate.
+d$D <- standardize(d$Divorce)
+d$M <- standardize(d$Marriage)
+d$A <- standardize(d$MedianAgeMarriage)
 
-How might a high divorce rate cause a higher marriage rate?
+lds <- read.csv("C:\\Users\\aly\\Documents\\statistical_rethinking\\ch5_LDS_data.csv")
+str(lds)
 
-- marriage rate can be tested with the relationship of the following predictors 
-in a multiple regression: divorce rate, and the rate of more than 1 marriage.
+#extract state and mormon rate
+lds_subset <- lds[c("state","mormonRate")]
+colnames(lds_subset)[1]  <- "Location" 
 
-If there is a strong association between the rate of more than 1 marriage and marriage rate,
-while divorce rate is weakly associated to marriage rate, this supports the hypothesis.
-
-
-#5M4.
-
-#read in the lds data
-setwd("C:/Users/Alan/Documents/Statistical_Rethinking")
-data <- read.csv('5M4_exercise.csv')
-str(data)
-
-#calculate the percent of mormon
-data$percent_mormon <- data$Estimated.Mormon.Population / data$Total.State.Population 
-str(data)
-#standardize mormon percent
-data$standardpop <- (data$percent_mormon-mean(data$percent_mormon))/sd(data$percent_mormon)
-
-library(rethinking)
-data(WaffleDivorce)
-d <- WaffleDivorce
-str(d)
-
-# standardize predictor
-d$MedianAgeMarriage.s <- (d$MedianAgeMarriage-mean(d$MedianAgeMarriage))/sd(d$MedianAgeMarriage)
-d$Marriage.s <- (d$Marriage - mean(d$Marriage))/sd(d$Marriage)
-
-#compute inner join
-df = merge(x=d, y= data, by.x="Location", by.y="X.State")
+#join 2 datasets by state
+df = merge(x = d, y = lds_subset, by = "Location")
 str(df)
 
-m_lds <- map(
+df$mormonRateStandardized <- standardize(df$mormonRate*100)
+
+
+sd(d$M)
+sd(d$A)
+sd(d$mormonRateStandardized)
+
+mD <- quap(
 		alist(
-			Divorce ~ dnorm( mu , sigma ) ,
-			mu <- a + bR*Marriage.s + bA*MedianAgeMarriage.s + bsp*standardpop,
-			a ~ dnorm( 10 , 10 ) ,
-			bR ~ dnorm( 0 , 1 ) ,
-			bA ~ dnorm( 0 , 1 ) ,
-			bsp ~ dnorm( 0, 1 ),
-			sigma ~ dunif( 0 , 10 )
-			) ,
-			data = df )
+			D ~ dnorm(mu, sigma),
+			mu <- alpha + bM*M + bA*A + bMormon*mormonRateStandardized,
+			alpha ~ dnorm(0,1),			# flat prior, 95% of divorce rates fall within 2 stdev
+			bM ~ dnorm(0, 0.5),			# 95% of slopes fall within a one unit change in divorce rate is a 1 unit change in marriage rate
+			bA ~ dnorm(0, 0.5),			# 95% of slopes fall within a one unit change in divorce rate is a 1 unit change in median age of marriage
+			bMormon ~ dnorm(0, 0.5),		# 95% of slopes fall within a one unit change in divorce rate is a 1 unit change in mormon rate
+			sigma ~ dexp(1)				#constrain sigma to be positive
+			), data=df )
 
-#adding the mormon population to the model, the median age of marriage is more negatively associated with divorce rate
-#marriage rate remains highly variable because the interval contains 0. 
-#sigma becomes smaller
-#percent of mormon population  is negatively correlated with divorce rate (mormons are less likely to divorce)
-#Thus states with larger median age of marriage or larger mormon population has a lower divorce rate.
-precis(m_lds)
+precis(mD) # mormon rate is strongly negatively associated to divorce rate
 
 
-#5M5.
-multiple regression for 2 mechanisms
 
-obesity rate ~ dnorn(mu, sigma)
-mu <- alpha + b_execise*amount_of_exercise + b_consumption_of_ff*amount_of_fast_food
-b_exercise ~ dnorm(0,1),
-b_consumption_of_ff ~ dnorm(0,1),
-alpha ~ dnorm(0,1)
-sigma~ dunif(10,10)
-
-#5H1. Fit two bivariate Gaussian regressions, using map: 
-#(1) body weight as a linear function of territory size (area), 
-#(2) body weight as a linear function of groupsize. 
-#(3) Plot the results of these regressions, displaying the MAP regression line and the 95% interval of the mean. 
-#(4) Is either variable important for predicting fox body weight?
-
-library(rethinking)
-
-#load data
-data(foxes)
-d <- foxes
-str(d)
-
-#bodyweight is normally distributed therefore we will not need to transform the data
-simplehist(d$weight)
-
-#territory size is approximately normally distributed therefore we will not need to transform the data
-simplehist(d$area)
-
-b1 <- map( 	
+mD2 <- quap(
 		alist(
-			weight ~ dnorm(mu, sigma),
-			mu <- alpha + ba*area,
-			alpha ~ dnorm(0 ,10),
-			ba ~ dnorm(0,1),
-			sigma ~ dunif(0, 10)
-			
-		), data=d)
+			D ~ dnorm(mu, sigma),
+			mu <- alpha + bM*M + bA*A,
+			alpha ~ dnorm(0,1),			# flat prior, 95% of divorce rates fall within 2 stdev
+			bM ~ dnorm(0, 0.5),			# 95% of slopes fall within a one unit change in divorce rate is a 1 unit change in marriage rate
+			bA ~ dnorm(0, 0.5),			# 95% of slopes fall within a one unit change in divorce rate is a 1 unit change in median age of marriage
+			sigma ~ dexp(1)				#constrain sigma to be positive
+			), data=d )
 
-#The territory size of a fox is weakly associated and highly variable in relation to the body weight of a fox, since the interval contains 0
-precis(b1)
+precis(mD2)
 
-#groupsize is approximately normal no need for transformation
-simplehist(d$groupsize)
+#The inclusion of the mormon predictor variable, reduced the association between age at marriage and divorce.
+#The mormon population predictor variable is weakly associated to divorce rate.
 
-# plot raw data
-plot( weight ~ area , data=d , col=rangi2 )
-
-#plot the MAP regression line
-abline( b1 )
-
-
-#plot the 95% prediction interval of the mean
-area_size <- seq( from=min(d$area) , to=max(d$area) , length.out=30 )
-
-#apply the model to the weights vector
-mu <- link( b1 , data=data.frame(area=area_size) )
-
-#compute the PI for the processed weights
-mu.PI <- apply( mu , 2 , PI )
-
-#draw the weights interval on the plot.
-shade( mu.PI , area_size )
-
-
-b2 <- map( 	
-		alist(
-			weight ~ dnorm(mu, sigma),
-			mu <- alpha + bgs*groupsize,
-			alpha ~ dnorm(0 ,10),
-			bgs ~ dnorm(0,1),
-			sigma ~ dunif(0, 10)
-			
-		), data=d)
-
-
-#The group size of a fox is negatively weakly associated to the body weight of the fox pact. 
-precis(b2)
-
-# plot raw data
-plot( weight ~ groupsize , data=d , col=rangi2 )
-
-#plot the MAP regression line
-abline( b2 )
-
-#plot the 95% prediction interval of the mean
-gs <- seq( from=min(d$groupsize) , to=max(d$groupsize) , length.out=30 )
-
-#apply the model to the groupsize vector
-mu <- link( b2 , data=data.frame(groupsize=gs) )
-
-#compute the PI for the processed weights
-mu.PI <- apply( mu , 2 , PI )
-
-#draw the weights interval on the plot.
-shade( mu.PI , gs )
-
-
-#Groupsize is positively weakly associated to predict body weight of the fox in the bivariate model
-#Area size is negatively weakly associated to predict body weight and highly varialbe in the bivariate model.
-
-#group size should be included in the model, but area size would not add value to the model, since the relationship to
-#weight is highly variable.
-
-#5H2
-# (1) Now fit a multiple linear regression with weight as the outcome and both area and groupsize as predictor variables. 
-# (2) Plot the predictions of the model for each predictor, holding the other predictor constant at its mean. 
-# (3) What does this model say about the importance of each variable? 
-# (4) Why do you get different results than you got in the exercise just above?
-
-#(1) test to see if group size or area is a good predictor of body weight
-b3 <- map( 	
-		alist(
-			weight ~ dnorm(mu, sigma),
-			mu <- alpha + bgs*groupsize + ba*area,
-			alpha ~ dnorm(0 ,10),
-			bgs ~ dnorm(0,1),
-			ba ~ dnorm(0,1),
-			sigma ~ dunif(0, 10)
-			
-		), data=d)
-
-precis(b3)
-#In the multiple regression model, group size is negatively associated to body weight whe we already know the area size.
-#While area size is positively associated to body weight when knowing the group size. 
-#Both predictors should be included in the model.
-
-
-#(2) Plot the predictions of the model for each predictor, holding the other predictor constant at its mean. 
-#(counterfactual plot)
-
-#page 129, 143/483
-
-#create a subplot of `x2
-par(mfrow = c(1, 2))
-
-
-#prepare new counterfactual data (hold area constant but vary group size)
-
-area.avg <- mean( d$area)#hold area constant
-
-groupsize.seq <- seq( from=min(d$groupsize) , #vary group size
-				 to=max(d$groupsize) ,
-					 length.out=30 )
-pred.data <- data.frame(
-				groupsize=groupsize.seq,
-				area =area.avg
-				)
-#apply model to data to create a new MAP line
-mu <- link( b3 , data=pred.data )
-mu.mean <- apply( mu , 2 , mean ) #calculate the mean on the model
-mu.PI <- apply( mu , 2 , PI ) #calculate the PI interval for the mean
-
-
-# simulate counterfactual  outcomes
-groupsize.sim <- sim( b3 , data=pred.data , n=1e4 )
-
-groupsize.PI <- apply( groupsize.sim , 2 , PI )
-
-# display predictions, hiding raw data with type="n"
-plot( weight ~ groupsize , data=d )
-mtext( "area = constant" ) # Add title to plot
-lines( groupsize.seq , mu.mean )
-shade( mu.PI , groupsize.seq )
-shade( groupsize.PI , groupsize.seq )
-
-
-# prepare new counterfactual data (hold group size constant but vary area)
-
-groupsize.avg <- mean( d$groupsize)#hold groupsize constant
-
-area.seq <- seq( from=min(d$area) , #vary area size
-				 to=max(d$area) ,
-					 length.out=30 )
-pred.data <- data.frame(
-				groupsize=groupsize.avg,
-				area =area.seq
-				)
-
-#apply model to data to create a new MAP line
-mu <- link( b3 , data=pred.data )
-
-
-mu.mean <- apply( mu , 2 , mean ) #calculate the mean on the model
-mu.PI <- apply( mu , 2 , PI ) #calculate the PI interval for the mean
-
-
-# simulate counterfactual area outcomes
-area.sim <- sim( b3 , data=pred.data , n=1e4 )
-
-area.PI <- apply( area.sim , 2 , PI )
-
-# display predictions, hiding raw data with type="n"
-plot( weight ~ area , data=d )
-mtext( "groupsize = constant" ) # Add title to plot
-lines( area.seq , mu.mean )
-shade( mu.PI , area.seq )
-shade( area.PI , area.seq )
-
-
-#(3) The model makes the following statements:
-#When holding area constant, groupsize and bodyweight have a negative relationship.
-#This could be due to the fact, a larger group size means more sharing of resources amongst the group.
+#5H1.
+#What are the implied conditional independencies of the DAG: M -> A -> D
 #
-#When holding groupsize constant, area and bodyweight have a positive relationship.
-#This could be due to the fact, a larger area means more resources for the fox amongst the group
+#The implied conditional independencies of the DAG are 
+#
+#M directly influences A
+#A directly influences D
+#M indirectly influences D
 
-#(4) Area and groupsize are positively correlated with one another
-
-test <- data.frame(d$area, d$groupsize, d$weight)
-str(test)
-pairs(test)
-
-#The relationship amongst weight, area, and groupsize is an example of a masked relationship.
-#Where predictors, area and groupsize, are positively correlated with each other. 
-#The positive and negative relationship cancel each other out.
-#However, area and weight are positively correlated, but groupsize and weight are negatively correlated.
-
-
-#5H3.
-Finally, consider the avgfood variable. 
-Fit two more multiple regressions: 
-(1) body weight as an additive function of avgfood and groupsize, 
-(2) body weight as an additive function of all three variables, avgfood and groupsize and area. 
-(3) Compare the results of these models to the previous models you’ve fit, in the first two exercises. 
-(a) Is avgfood or area a better predictor of body weight? 
-If you had to choose one or the other to include in a model, which would it be? Support your assessment with any tables or plots you choose. 
-(b) When both avgfood or area are in the same model, their effects are reduced (closer to zero) and their standard errors are larger than when they
-are included in separate models. Can you explain this result
-
-library(rethinking)
-
-#load data
-data(foxes)
-d <- foxes
-str(d)
-
-#(1)
-#avgfood is approximately normal, no need to log transform
-dens(d$avgfood)
-
-#create a model for weight using the predictors avgfood and groupsize
-b4 <- map(
-		alist(
-			weight ~ dnorm(mu, sigma),
-			mu <- alpha + b_avgfood*avgfood + bgs*groupsize,
-			alpha ~ dnorm(0,max(d$weight)), #flat prior
-			b_avgfood ~ dnorm(0,max(d$weight)),
-			bgs ~ dnorm(0,max(d$weight)),
-			sigma ~ dunif(0,10)
-			), data=d)
-
-#holding groupsize constant, average food is strongly positively correlated with body weight
-#more food consumption = more body weight
-#holding food consumption constant, group size is negateively correlated with body weight.
-#larger group sizes means more sharing of resources which results to smaller body weights.
-precis(b4)
-
-#identify pairwise relationships
-dat1 <- data.frame(d$weight, d$avgfood, d$groupsize)
-
-#avgfood is positively associated to groupsize, this may be an example of multi collinearity. 
-pairs(dat1)
-
-
-#(2)
-#create a model for weight using the predictors avgfood, area, and groupsize
-b5 <- map(
-		alist(
-			weight ~ dnorm(mu, sigma),
-			mu <- alpha + b_avgfood*avgfood + bgs*groupsize + ba*area,
-			alpha ~ dnorm(0,max(d$weight)), #flat prior
-			b_avgfood ~ dnorm(0,max(d$weight)),
-			bgs ~ dnorm(0,max(d$weight)),
-			ba ~ dnorm(0,max(d$weight)),
-			sigma ~ dunif(0,max(d$weight))
-			), data=d)
-
-precis(b5)
-
-#(3)
-#avg_food is highly variable, the distribution of slopes contains 0, with the introduction of the variable area into the model.
-#groupsize is more negatively associated with body weight
-#However, there is approximately 0 change to the distribution of slopes for area with the introduction of avg food.
+#5H2. Assuming that the DAG for the divorce example is indeed M-> A -> D,
+#fit a new model and use it to estimate the counterfactual effect of halving
+#a states marriage rate M. Use the counterfactual example from the chapter 
+#(p.140) as a template
 #
 
+m5.3 <- quap(
+			alist(
+				## A -> D <- M
+				D ~ dnorm(mu, sigma),
+				mu <- a + bM*M + bA*A,
+				a ~ dnorm(0, 0.2),
+				bM ~ dnorm(0, 0.5),
+				bA ~ dnorm(0, 0.5),
+				sigma ~ dexp(1)
+				), data=d )
 
-#(a)
-#avgfood or area is a good predictor of body weight, but should not be included in the same model. 
-#both variables are positively correlated and including both would add more variability into the model.
+precis(m5.3)
 
-#view pairs plot between area and avgfood
-dat1 <- data.frame(d$weight, d$area, d$avgfood)
-pairs(dat1)
+m5.3_A <- quap(
+			alist(
+				## A -> D <- M
+				D ~ dnorm(mu, sigma),
+				mu <- a + bM*M + bA*A,
+				a ~ dnorm(0, 0.2),
+				bM ~ dnorm(0, 0.5),
+				bA ~ dnorm(0, 0.5),
+				sigma ~ dexp(1),
 
-#To identify the better predictor for body weight, 
-#compare the magnitude of fits of body weights amongst inclusion of standardized avgfood and area predictors.
+				## A -> M
+				M ~ dnorm( mu_M, sigma_M),
+				mu_M <- aM + bAM*A,
+				aM ~ dnorm(0, 0.2),
+				bAM ~ dnorm( 0,0.5 ),
+				sigma_M ~ dexp(1)
+				), data=d 
+			)
 
-d$avgfood.s <- ( d$avgfood - mean(d$avgfood) ) /sd(d$avgfood)
-
-b6 <- map(
-		alist(
-			weight ~ dnorm(mu, sigma),
-			mu <- alpha + b_avgfood*avgfood.s + bgs*groupsize,
-			alpha ~ dnorm(0,max(d$weight)), #flat prior
-			b_avgfood ~ dnorm(0,max(d$weight)),
-			bgs ~ dnorm(0,max(d$weight)),
-			sigma ~ dunif(0,max(d$weight))
-			), data=d)
-
-precis(b6)
-
-d$area.s <- ( d$area - mean(d$area) ) /sd(d$area)
-
-b7 <- map(
-		alist(
-			weight ~ dnorm(mu, sigma),
-			mu <- alpha + b_area*area.s + bgs*groupsize,
-			alpha ~ dnorm(0,max(d$weight)), #flat prior
-			b_area ~ dnorm(0,max(d$weight)),
-			bgs ~ dnorm(0,max(d$weight)),
-			sigma ~ dunif(0,max(d$weight))
-			), data=d)
-
-precis(b7)
-
-#Comparing the magnitudes of fits, avgfood is more strongly correlated to bodyweight than area is correlated to bodyweight.
-#I would include avgfood in the model to predict body weight. The same results can be visualized using the counterfactual plots
-#of each variable individually plotted against groupsize. avgfood has highger correlation to bodyweight.
+precis(m5.3_A) #looking at bAM, M & A are strongly negatively correlated
 
 
-#plot the counterfactual plot for (groupsize, area) , and (groupsize avgfood)
+#create a model M -> A -> D
+m5.3_B<- quap(
+			alist(
+				## A -> D
+				D ~ dnorm(mu, sigma),
+				mu <- a + bA*A,
+				a ~ dnorm(0, 0.2),
+				bA ~ dnorm(0, 0.5),
+				sigma ~ dexp(1),
 
-#create a subplot of `x2
-par(mfrow = c(1, 2))
+				## M -> A
+				A ~ dnorm( mu_M, sigma_M),
+				mu_M <- aM + bMA*M,
+				aM ~ dnorm(0, 0.2),
+				bMA ~ dnorm( 0,0.5 ),
+				sigma_M ~ dexp(1)
+				), data=d 
+			)
+precis(m5.3_B) 
+#A is negativiely correlated with D, 
+#while M is negatively correlated with A
 
-#(a) prepare new counterfactual data (hold group size constant but vary area)
+#estimate the effect of varying M while holding A constant
+#
+M_seq <- seq(from=-2, to=2, length.out=30)
 
-groupsize.avg <- mean( d$groupsize)#hold groupsize constant
+#simulate A using observed M then use the simulated data of A inside model D
+sim_dat <- data.frame(M=M_seq)
+s <- sim(m5.3_B, data=sim_dat, vars=c("A", "D") )
 
-area.seq <- seq( from=min(d$area) , #vary area size
-				 to=max(d$area) ,
-					 length.out=30 )
-pred.data <- data.frame(
-				groupsize=groupsize.avg,
-				area =area.seq
-				)
+plot(sim_dat$M, colMeans(s$D), ylim=c(-2,2), type="l",
+		xlab="maniupulated M", ylab="counterfactual D" )
 
-#apply model to data to create a new MAP line
-mu <- link( b3 , data=pred.data )
-
-
-mu.mean <- apply( mu , 2 , mean ) #calculate the mean on the model
-mu.PI <- apply( mu , 2 , PI ) #calculate the PI interval for the mean
-
-
-# simulate counterfactual area outcomes
-area.sim <- sim( b3 , data=pred.data , n=1e4 )
-
-area.PI <- apply( area.sim , 2 , PI )
-
-# display predictions, hiding raw data with type="n"
-plot( weight ~ area , data=d )
-mtext( "groupsize = constant" ) # Add title to plot
-lines( area.seq , mu.mean )
-shade( mu.PI , area.seq )
-shade( area.PI , area.seq )
-
-
-#(b) prepare new counterfactual data (hold group size constant but vary area)
-
-groupsize.avg <- mean( d$groupsize)#hold groupsize constant
-
-avgfood.seq <- seq( from=min(d$avgfood) , #vary area size
-				 to=max(d$avgfood) ,
-					 length.out=30 )
-pred.data <- data.frame(
-				groupsize=groupsize.avg,
-				avgfood =avgfood.seq
-				)
-
-#apply model to data to create a new MAP line
-mu <- link( b4 , data=pred.data )
+shade( apply(s$D,2, PI), sim_dat$M)
+mtext("Counterfactual effect of M on D")
 
 
-mu.mean <- apply( mu , 2 , mean ) #calculate the mean on the model
-mu.PI <- apply( mu , 2 , PI ) #calculate the PI interval for the mean
+plot(sim_dat$M, colMeans(s$A), ylim=c(-2,2), type="l",
+		xlab="maniupulated M", ylab="counterfactual A" )
+
+shade( apply(s$A,2, PI), sim_dat$M)
+mtext("Counterfactual effect of M on A")
+
+#M is nagatively associated to A, while M is positively associated to D
+
+#simulate the effect of halving marriage rate M
+sim2_dat <- data.frame( M = (c(mean(d$Marriage)/2,mean(d$Marriage)) - mean(d$Marriage))/sd(d$Marriage) ) 
+str(sim2_dat)
+s2 <- sim(m5.3_B, data=sim2_dat, vars=c("A","D") )
+mean(s2$D[,2] -s2$D[,1]) # halving the marriage rate, reduces the divorce rate by one standard deviation.
 
 
-# simulate counterfactual avgfood outcomes
-avgfood.sim <- sim( b4 , data=pred.data , n=1e4 )
+#5H3. model m5.7, assume the true causal relationship among the variables is:
+# M-> N -> K, M-> K
+#compute the counterfactual effect of doubling M.
+#account for both the direct and indirect paths of causation.
 
-avgfood.PI <- apply( avgfood.sim , 2 , PI )
+library(rethinking)
+data(milk)
+d <- milk
 
-# display predictions, hiding raw data with type="n"
-plot( weight ~ avgfood , data=d )
-mtext( "groupsize = constant" ) # Add title to plot
-lines( avgfood.seq , mu.mean )
-shade( mu.PI , avgfood.seq )
-shade( avgfood.PI , avgfood.seq )
+d$K <- standardize(d$kcal.per.g)
+d$N <- standardize(d$neocortex.perc)
+d$M <- standardize(log(d$mass))
 
-#looking at the plots, the PI for the mean for avgfood contains more of the raw data points than the PI for the mean of area.
-#There are more points that fall into the PI of the model with avgfood than the model with area.
+dcc <- d[complete.cases(d$K, d$N, d$M), ]
+m5.7 <- quap(
+			alist(
+				## M -> K <- N (direct path) use simulated N and oberserved M to simulate K
+				K ~ dnorm(mu, sigma),
+				mu <- a + bN*N + bM*M,
+				a ~ dnorm(0,0.2),
+				bN ~ dnorm(0,0.5),
+				bM ~ dnorm(0, 0.5),
+				sigma ~ dexp(1),
 
 
-#(b) avgfood and area are related to another an example of multicollinearity. Both variables are positively associated to groupsize.
-#When including both variables in the model, the means for the slopes of avgfood and area are comingled and they never seperately influence the mean.
+				##M -> N (indirect path) use observed M to simulate N
+				N ~ dnorm(mu_MN,sigma_MN),
+				mu_MN <- aMN + bMN*M,
+				aMN ~ dnorm(0,0.2),
+				bMN ~ dnorm(0, 0.5),
+				sigma_MN ~ dexp(1)
+				
+				), data=dcc
+				
+		)
+
+precis(m5.7) #M is positively associated to N
+
+
+M_seq <- seq(from=-2, to=2, length.out=30)
+
+#simulate N using observed M then use the simulated data of N inside model K
+sim_dat <- data.frame(M=M_seq)
+s <- sim(m5.7, data=sim_dat, vars=c("N", "K") )
+
+#M is negatively associated to K
+plot(sim_dat$M, colMeans(s$K), ylim=c(-2,2), type="l",xlab="maniupulated M", ylab="counterfactual K" )
+shade( apply(s$K,2, PI), sim_dat$M)
+mtext("Counterfactual effect of M on K") 
+
+#simulate the effect of doubling body mass M
+sim2_dat <- data.frame( M = (c( mean( log(d$mass*2) ), mean( log(d$mass) ) ) - mean( log(d$mass) ) )/sd( log(d$mass) ) ) 
+str(sim2_dat)
+s2 <- sim(m5.7, data=sim2_dat, vars=c("N","K") )
+mean(s2$K[,1] -s2$K[,2]) # doubling the body mass decreases the milk energy by 0.11 standard deviations.
+
+
+#5H4.
